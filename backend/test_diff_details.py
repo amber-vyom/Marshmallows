@@ -15,9 +15,9 @@ def get_added_lines(repo, commit, filename):
                     added.append(line[1:].strip())
     return added
 
-repo = git.Repo(".")
+repo = git.Repo("..")
 commit = repo.head.commit
-repo = git.Repo(".")
+repo = git.Repo("..")
 commit = repo.head.commit
 print("Parent:", commit.parents[0].hexsha[:7] if commit.parents else "no parent")
 

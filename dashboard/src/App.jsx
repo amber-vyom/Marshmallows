@@ -1,12 +1,30 @@
 import React, { useState, useEffect } from 'react';
+import CommitModal from './components/CommitModal';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Box, AlertTriangle, GitCommit, User, ShieldCheck, HardDrive } from 'lucide-react';
+import { Box, AlertTriangle, GitCommit, User, ShieldCheck, HardDrive, ExternalLink } from 'lucide-react';
 import { fetchBuildHistory } from './api';
 import HistoryTable from './components/HistoryTable';
+
+// Custom Tooltip component for richer interactive details on hover
+const CustomChartTooltip = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-zinc-900 text-zinc-100 p-3 rounded-md border border-zinc-700 shadow-xl font-mono text-xs space-y-1">
+        <p className="text-violet-400 font-semibold">{data.timestamp}</p>
+        <p>Size: <span className="text-white font-bold">{data.size_mb} MB</span></p>
+        <p className="text-zinc-400 text-[11px]">Commit: <span className="text-zinc-200">{data.commit_sha}</span></p>
+        <p className="text-zinc-400 text-[11px]">Author: <span className="text-zinc-200">{data.author}</span></p>
+      </div>
+    );
+  }
+  return null;
+};
 
 export default function App() {
   const [builds, setBuilds] = useState([]);
   const [selectedBuild, setSelectedBuild] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchBuildHistory().then(data => {
@@ -17,6 +35,12 @@ export default function App() {
       }
     });
   }, []);
+
+  // Helper handler for chart node clicks
+  const handleNodeClick = (buildData) => {
+    setSelectedBuild(buildData);
+    setIsModalOpen(true);
+  };
 
   if (!selectedBuild) {
     return (
@@ -70,7 +94,8 @@ export default function App() {
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={builds}
-                onClick={(e) => e && e.activePayload && setSelectedBuild(e.activePayload[0].payload)}
+                onClick={(e) => e && e.activePayload && handleNodeClick(e.activePayload[0].payload)}
+                className="cursor-pointer"
               >
                 <defs>
                   <linearGradient id="colorSize" x1="0" y1="0" x2="0" y2="1">
@@ -81,10 +106,7 @@ export default function App() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                 <XAxis dataKey="timestamp" stroke="#52525b" tick={{ fontSize: 11, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
                 <YAxis stroke="#52525b" tick={{ fontSize: 11, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px' }}
-                  itemStyle={{ color: '#8b5cf6' }}
-                />
+                <Tooltip content={<CustomChartTooltip />} />
                 <Area
                   type="monotone"
                   dataKey="size_mb"
@@ -92,7 +114,14 @@ export default function App() {
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#colorSize)"
-                  activeDot={{ r: 6, stroke: '#000', strokeWidth: 2, onClick: (_, payload) => setSelectedBuild(payload.payload) }}
+                  dot={{ r: 3, fill: '#8b5cf6', strokeWidth: 1, stroke: '#000' }}
+                  activeDot={{
+                    r: 6,
+                    stroke: '#ffffff',
+                    strokeWidth: 2,
+                    fill: '#8b5cf6',
+                    onClick: (_, payload) => handleNodeClick(payload.payload)
+                  }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -114,7 +143,7 @@ export default function App() {
             )}
           </div>
 
-          <div className="flex flex-col gap-5 flex-grow">
+          <div className="flex flex-col gap-4 flex-grow">
             <div className="bg-black p-4 rounded-lg border border-zinc-800">
               <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1 font-mono">Current Image Size</div>
               <div className="text-3xl font-light text-white font-mono">{selectedBuild.size_mb} <span className="text-lg text-zinc-600">MB</span></div>
@@ -140,26 +169,42 @@ export default function App() {
 
             <div>
               <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Commit Message</span>
-              <p className="text-sm text-zinc-300 mt-1.5 bg-zinc-900/50 p-3 rounded border border-zinc-800/50">
+              <p className="text-sm text-zinc-300 mt-1 bg-zinc-900/50 p-2.5 rounded border border-zinc-800/50">
                 {selectedBuild.message}
               </p>
             </div>
 
-            <div className="mt-auto">
+            <div>
               <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Automated Root Cause</span>
-              <p className={`text-sm mt-1.5 p-3 rounded border font-mono leading-relaxed ${selectedBuild.has_spike ? 'bg-red-500/5 border-red-500/20 text-red-300' : 'bg-black border-zinc-800 text-zinc-400'}`}>
+              <p className={`text-xs mt-1 p-2.5 rounded border font-mono leading-relaxed ${selectedBuild.has_spike ? 'bg-red-500/5 border-red-500/20 text-red-300' : 'bg-black border-zinc-800 text-zinc-400'}`}>
                 {selectedBuild.diff_summary}
               </p>
             </div>
+
+            {/* Modal Trigger Button */}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="mt-auto w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-mono py-2.5 px-4 rounded-lg border border-violet-400/30 transition-colors shadow-lg"
+            >
+              <ExternalLink className="w-3.5 h-3.5" /> Inspect Full Commit Details
+            </button>
           </div>
         </div>
 
       </div>
 
-      {/* Embedded History Table - Ensure it has a relative z-index to sit above the grid */}
+      {/* Embedded History Table */}
       <div className="relative z-10">
         <HistoryTable builds={builds} />
       </div>
+
+      {/* Commit Detail Pop-up Modal */}
+      {isModalOpen && (
+        <CommitModal
+          build={selectedBuild}
+          onClose={() => setIsModalOpen(false)}
+        />
+      )}
 
     </div>
   );

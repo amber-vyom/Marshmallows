@@ -31,7 +31,7 @@ def init_db():
 # GIT INFORMATION
 # =========================================================
 
-def get_latest_commit_info(repo_path=".."):
+def get_latest_commit_info(repo_path="."):
     repo = git.Repo(repo_path)
     commit = repo.head.commit
 
